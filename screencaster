@@ -1,0 +1,137 @@
+#!/usr/bin/env python
+
+import base64
+import sys
+from datetime import datetime
+from subprocess import getoutput, Popen, PIPE
+from pathlib import Path
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
+
+
+class Screencaster:
+    def __init__(self):
+        self.command = (
+            "/usr/bin/ffmpeg "
+            "-f pulse -i default -c:a aac "
+            "-f x11grab -i :0 -c:v h264 "
+        )
+        self.process = None
+        self.filename = None
+
+    def start(self):
+        self._new_filename()
+        command = self.command + str(self.filename)
+        self.process = Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
+
+    def stop(self):
+        self.process.terminate()
+        self.process.wait()
+        self.process = None
+
+    def recording(self):
+        if self.process is not None:
+            return self.process.poll() is None
+        return False
+
+    def _new_filename(self):
+        self.filename = self._get_dir() / f"screencast-{datetime.now().isoformat()}.mp4"
+
+    @staticmethod
+    def _get_dir():
+        directory = getoutput("xdg-user-dir VIDEOS") or "/tmp"
+        return Path(directory)
+
+
+class Application:
+    def __init__(self):
+        self.screencaster = Screencaster()
+        self.app = QApplication(sys.argv)
+        self.app.setQuitOnLastWindowClosed(False)
+
+        self.tray = QSystemTrayIcon()
+        pixmap = QPixmap()
+        pixmap.loadFromData(base64.b64decode(ICON), "PNG")
+        icon = QIcon(pixmap)
+        self.tray.setIcon(icon)
+        self.tray.setToolTip("Screencaster")
+        self.tray.setVisible(True)
+        self.tray.activated.connect(self.start_stop)
+
+        menu = QMenu()
+        option_start = QAction("Start")
+        option_start.triggered.connect(self.start)
+        option_stop = QAction("Stop")
+        option_stop.triggered.connect(self.stop)
+        menu.addAction(option_start)
+        menu.addAction(option_stop)
+        option_quit = QAction("Quit")
+        option_quit.triggered.connect(self.app.quit)
+        menu.addAction(option_quit)
+        self.tray.setContextMenu(menu)
+
+        sys.exit(self.app.exec_())
+
+    def start_stop(self, *_args, **_kwargs):
+        if self.screencaster.recording():
+            self.stop()
+        else:
+            self.start()
+
+    def start(self):
+        if not self.screencaster.recording():
+            self.screencaster.start()
+            self.tray.showMessage(
+                "I am watching at you...", str(self.screencaster.filename))
+        else:
+            self.tray.showMessage("Already watching.", str(self.screencaster.filename))
+
+    def stop(self):
+        if self.screencaster.recording():
+            self.screencaster.stop()
+            self.tray.showMessage("No more watching.", str(self.screencaster.filename))
+        else:
+            self.tray.showMessage("Not watching.", "Nuff said")
+
+
+ICON = (
+    b"iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9"
+    b"kT1Iw0AcxV9TpSIVBwuKCGaoThZERQUXrUIRKoRaoVUHk+snNGlIUlwcBdeCgx+LVQcXZ10dXAVB"
+    b"8APE0clJ0UVK/F9SaBHjwXE/3t173L0DhFqJqWbbKKBqlpGIRcVUelUMvCKAQfRiBlMyM/U5SYrD"
+    b"c3zdw8fXuwjP8j735+jKZE0G+ETiWaYbFvEG8eSmpXPeJw6xgpwhPiceMeiCxI9cV1x+45x3WOCZ"
+    b"ISOZmCcOEYv5FlZamBUMlXiCOJxRNcoXUi5nOG9xVksV1rgnf2Ewq60sc53mAGJYxBIkiFBQQREl"
+    b"WIjQqpFiIkH7UQ9/v+OXyKWQqwhGjgWUoUJ2/OB/8LtbMzc+5iYFo0D7i21/DAGBXaBete3vY9uu"
+    b"nwD+Z+BKa/rLNWD6k/RqUwsfAd3bwMV1U1P2gMsdoO9Jlw3Zkfw0hVwOeD+jb0oDPbdA55rbW2Mf"
+    b"pw9AkrqK3wAHh8BwnrLXPd7d0drbv2ca/f0AJHNy7uHNADIAAAAGYktHRAD/AP8A/6C9p5MAAAAJ"
+    b"cEhZcwAADsMAAA7DAcdvqGQAAAAHdElNRQfmCAEABhjBM0FLAAAFzElEQVRYw+WYaWwVVRTHf2Vr"
+    b"oQVaKEoQEBQBEUEpioJgWYQoBhVEIomBuCUkIkZciBJFBf1gMEJCjMS4IApI4oZBcWUTFVo2RQum"
+    b"VtmEtIiFli5A8cvvmckwr29awydPMpl58+7ce+45//M/51z4n0grIAdIa+T3TYAhQItzpeClwF0u"
+    b"FCVp9bzLAd4EjgH9w4OaBp7vdYHRwPYGKDcQaAcsANYBU4AKle4NXFfPfKOAtc7RCvjTOSIlGzgI"
+    b"VAKHganuLizNgK7ABKAN8BmwAagBzgAngN+BH/39DNAPaK7VsjTMY8BpYCuQCzwBvJTK9N+5o63A"
+    b"PSrwKvAJcMQxj7jYc0CVC6aSGmAxsB/oDHQExgAvAnMd8xrwh/MmlWXA2BBwlwI7gEnATHd9ppHX"
+    b"Wi1b5NwAmVp0EzAu1U5HAF+H3mUAk4GjTvJhI5XbpgU364HOwNOucSFwALggDuj3AF1C73KBu8Xm"
+    b"EeDjBir3F/CTwTJKXL4O5InPq4EtxsFZ/BOWt4BZgcDp4L0JMA8odNKdLh5HWhjRh51/om691Xl6"
+    b"Aye9zorIKBz+DKwEioEbfd8RGAqUAFeocF2IqpJJpvfR3tsD1WISYBDwS5SCUdIa2AWUq8gC4BWV"
+    b"rQJOedUlcWdhTLdXANcAPcXn9LjE29zwT0zUT9fEjd51McedNKIXA8eBm5PlwLCclHxPA6Xio7ye"
+    b"NBaWfYHnsgAPVkfAqy/wm3OXxlUQibrQ6M0DOgX+OwPU+rw/4tttgedC70f1TJRMNfMcbmgBMEOs"
+    b"1Ua4p1Lr1EW49HrvxcCXPn8fAxZtG2JBnPTbiJ3XmdhPyIkV5vCEbPK+xsWXGKUVYi1Kjnk1SMEH"
+    b"pZawnAD2+lzuws8DhwIY/srNFTn+KPCRG4uSygZw6r/ygC6OcskOsXknsBroLiXN9NsBvssUCiM0"
+    b"xpSIueqiqpg4MliXROEvPzCum6krmUfygctUfjLwZMR8YxpbKe+PULDIBecD64FngUuSZCW0TgEw"
+    b"zGB4IWK+pJIqTZUBt4Xe7VShAvltNJAun5VH4LgsQD/5kvMNgTH31adkKvJdEojKhPSy8qiWghZa"
+    b"AY2PKIBHiM0iC90PxG1CFlm+/SfpZIQGU9R8F1sOzDGSCwJFAQGC3iTuZjgmMc+ieqK63m4rSkYC"
+    b"K6xCErJUS6bZk+SrdIn/51lXrra3mWVhWgK8Y7ZKKU1jKlhiv5Lt7kvt5HLlvHVWQA+bPbCnWS4P"
+    b"Vkrcewy8CnHcxTmqxHOjFcy2gTpk1iiRguYCGwNV0Awti+V7po0QYnGx4y53g8UWJUOltVMBwk+p"
+    b"4DitcLu7PAb0cIG2Nj1ZwBeOrwWusr4bZF+8OVAEzLHvxRZgjzDoALxrYTEAuMNM9XcyBUcC06SF"
+    b"BM76Wxr9qit7mKunasldZoQ1VuKT7D/eBlq60T7AKsv/vQbfceBTLZ8oGr6xis8BDoSDpJ1d/mbd"
+    b"0N1IXGWADPLj9fJjlScHB1Vun5teCDyltYcJkRXibIN8OUR8nme5n+XzTn8PBXaHLVjlh+3F2Vpd"
+    b"0VXL5tnE97QYyJYuWmvdK93gPsm7RovsljdXi7U0oZFtW1ushz4Xu31tfyvD7p0GnB9yfQbwqBjq"
+    b"ZSc2HHjIHc8To4kqOVN+SzcRNDFzXAs87riJRnGipU3k4umuPcRWI5ZMV6mBTvayFpzg/+/FmGOA"
+    b"C94vbNoCt7iJMCfPEbejgPRUqW6s0ZRhFpit5fIMgk4xT8KKgYuANwysck8SBodaCTybqVHh3FQK"
+    b"Vgve94GbtFa2xxaJRbfEULBctzcBfrARKxDbbUJjT8sIG4GaVArmCNZaXbPdKF4W2HVlA05Rmxlc"
+    b"1wdOMcYnGV8FlKVSsI8RmCO5VlmhJLq5Ugk5jtQELFQVep/VmHKrm7SQ4Mcy4OLAcUXioKlvTAVX"
+    b"au26RJZQVsm5DZaM0HFISwvQMGaGSyFxJc35GlMTpJTZSbyQfq5O5/8BQUzwnt0O1kQAAAAASUVO"
+    b"RK5CYII="
+)
+
+if __name__ == '__main__':
+    Application()
