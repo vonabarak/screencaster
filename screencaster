@@ -3,12 +3,11 @@
 import base64
 import sys
 from datetime import datetime
-from subprocess import getoutput, Popen, PIPE
+from subprocess import getoutput, Popen
 from pathlib import Path
 from PySide6.QtGui import QIcon, QPixmap, QAction
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 
-#            "-f pulse -i alsa_output.pci-0000_00_1f.3.analog-stereo.monitor -c:a aac "
 
 class Screencaster:
     def __init__(self):
@@ -54,7 +53,8 @@ class Application:
 
         self.tray = QSystemTrayIcon()
         pixmap = QPixmap()
-        pixmap.loadFromData(base64.b64decode(ICON), "PNG")
+        icon = ICON_W if self._is_dark_theme() else ICON_B
+        pixmap.loadFromData(base64.b64decode(icon), "PNG")
         icon = QIcon(pixmap)
         self.tray.setIcon(icon)
         self.tray.setToolTip("Screencaster")
@@ -96,8 +96,13 @@ class Application:
         else:
             self.tray.showMessage("Not watching.", "Nuff said")
 
+    def _is_dark_theme(self) -> bool:
+        window_bg_color = self.app.palette().window().color()
+        luminance = 0.299 * window_bg_color.red() + 0.587 * window_bg_color.green() + 0.114 * window_bg_color.blue()
+        return luminance < 128
 
-ICON = (
+
+ICON_B = (
     b"iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAABhWlDQ1BJQ0MgcHJvZmlsZQAAKJF9"
     b"kT1Iw0AcxV9TpSIVBwuKCGaoThZERQUXrUIRKoRaoVUHk+snNGlIUlwcBdeCgx+LVQcXZ10dXAVB"
     b"8APE0clJ0UVK/F9SaBHjwXE/3t173L0DhFqJqWbbKKBqlpGIRcVUelUMvCKAQfRiBlMyM/U5SYrD"
@@ -134,6 +139,47 @@ ICON = (
     b"1wdOMcYnGV8FlKVSsI8RmCO5VlmhJLq5Ugk5jtQELFQVep/VmHKrm7SQ4Mcy4OLAcUXioKlvTAVX"
     b"au26RJZQVsm5DZaM0HFISwvQMGaGSyFxJc35GlMTpJTZSbyQfq5O5/8BQUzwnt0O1kQAAAAASUVO"
     b"RK5CYII="
+)
+ICON_W = (
+    b"iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAABhWlDQ1BJQ0MgUHJvZmlsZQAAeJx9"
+    b"kT1Iw0AcxV9TpSIVBwuKCGaoThZERQUXrUIRKoRaoVUHk+snNGlIUlwcBdeCgx+LVQcXZ10dXAVB"
+    b"8APE0clJ0UVK/F9SaBHjwXE/3t173L0DhFqJqWbbKKBqlpGIRcVUelUMvCKAQfRiBlMyM/U5SYrD"
+    b"c3zdw8fXuwjP8j735+jKZE0G+ETiWaYbFvEG8eSmpXPeJw6xgpwhPiceMeiCxI9cV1x+45x3WOCZ"
+    b"ISOZmCcOEYv5FlZamBUMlXiCOJxRNcoXUi5nOG9xVksV1rgnf2Ewq60sc53mAGJYxBIkiFBQQREl"
+    b"WIjQqpFiIkH7UQ9/v+OXyKWQqwhGjgWUoUJ2/OB/8LtbMzc+5iYFo0D7i21/DAGBXaBete3vY9uu"
+    b"nwD+Z+BKa/rLNWD6k/RqUwsfAd3bwMV1U1P2gMsdoO9Jlw3Zkfw0hVwOeD+jb0oDPbdA55rbW2Mf"
+    b"pw9AkrqK3wAHh8BwnrLXPd7d0drbv2ca/f0AJHNy7tfsbkMAAAbDSURBVHiczZhpbBZVFIafFgRC"
+    b"sVKtYBTEFXCvYjSyKHUBV9yiBhKXuMQlajCucd//GP2hUeMSF0SJkrjhAhqNilaUraDRui9FowJW"
+    b"lBYqtK8/3jN+0+l8/b6qPzzJZGbu3Ln3nbO950yFJP7PUvkfrTMQqAEq/gWOcUC/vAf/hYwAjqY4"
+    b"wLzxZKwGeAR4FdglO6lv6vpsoBHYHXisF+D2BQYBNwMfA5OAubHxAGCrIusJOBR4CtgMa+9YYFnX"
+    b"WVJyDJb0o6RWST9LOkNSTep5cvSVtK2kEyVVS5orab6kdlnaJH0r6aO4v0nSnpI2kVQhaZCkPpKu"
+    b"kNQhaYmkWklXS7oru19FJkjeB94ClgBnAdXAA8BLwOqYcxmwCXALsC60V0ragQeBFcCw0Opk4A7g"
+    b"1pjzMPBdrJurQSTNknRUXFdKGidppqRlkk6RdGl89T+Vt0KzTbE2kqpCow2SpmQ1mAV4sKQ3M2MD"
+    b"JE2T1BKLPP8PwS2VtELSh7K5h0m6IfYYIekHSduUAoikzyUNz4zVSjpT9s3Vkl7sJbhfJX0sqVHS"
+    b"obJfPiJpjOyf+0laKMdBFzx5aeZx4Kq4HgxsGedK4DZgMbAnsBxHYjnSDxgN/BzrnwT0AY6LdUYD"
+    b"G+LoIn2zA8As4BNgNvAVcESMbwVMAL4B6gJwZ2xUSqriPCnOWwDrcUAC7A98Wi7AlQHsBeAgYDes"
+    b"gUnA1kB9zKskPwEvAfYpAbg/MDJAjQTG4mT9ZzkA1wOv4HSyFNgLeB2opTzmWVvGnATkQzi17YQt"
+    b"003yNtyAmaADa3M0sKZMcADNqetVcW7HH56Wvpi1vo61V5YLEGymxVhrY7BpExEFU6zIeXdp6npx"
+    b"nFtwcs+TM4BvcQCVDbAFc2QncAkFJwf73UbMLNsA72TeXRTnrym40HcUD6ZRWNMtvQEIsAB4j+5f"
+    b"3onLq7YAuRb4MfW8Ic7zsLZn4ChdC/xRZK/f4+gVwItxaslKG/B9XK+JjW8HfoqxDcAb+OOaYn4L"
+    b"zgoDi+zVSrGcmsMkyXGhpI1FmGFZsMBUSa9I2l5SnczVSNonxqokrZIptFLS6TlrdSqnilEPVJcc"
+    b"YyX9kbNgq6SJqXnbBXUlBUZ2nYmSdgvw0yRdk7Pe5GI4ejJxQ5gwK804JdyJA+RMYCYOiM6c+VMw"
+    b"vS0EzqV7edaM/TVXSuW2q3PGfsD+uRwn2SOAaTiis3Ix8CVOPR1x/JqZc1X2pd4AnEEhKhMZhbWx"
+    b"HufDu4HPgRPoTn0HY95uwsz0HDA19fxe4PmeAGQr6jzZGifuoXG/MUDtgBki2bwJc3dr6t0WzLcv"
+    b"42g/FSd+gPuAy3GU/yuAAIcAT+MqJJGZWJMVwHxgItZQwqljgOGY12uwKUfE8yfjo0tKuQDBpdYl"
+    b"2MRg7a3AhD8H9y/XAFfG82uxptMJeG9gcxxk1Tj3tWHWyQvI3GomTwbjBmk2rjyqgCHAXbjVBEdw"
+    b"Xeqdr+I+ocI63IC9HXNX4nqwEzgGR/cC3PqWBXAKMB73rEuxjw2NBQfgfvh07EdgH2vCkQuwLS58"
+    b"EzkPm7Uf8Et8QD3W8GM4wg/HPwBm4gIi18SH4JbwBexjtcDJcV6GKe0YTPAX4DbxCUxxFbgwGIaD"
+    b"YHoAOhVH9DPYAs24lWjFpd3ZWJsN2HWmYvdpyALcPDTzIbAHsD2OxDk4QPbHee8d4Hhs9vG4WJgX"
+    b"G/fBvnc9LjQOxC7ydGw+H/vbOOx/Q3CkD4rr5XE/AfgsT4OnhXaasPOCzTUB2BVX13XYBPsBbwJH"
+    b"Yt/ZK7TXL0D/BHyGAyIphOvj3QWhjOHYhcbj/zMjsVvNBbpx8fmShsqNdLovvlzSjZJGSTpOUr2k"
+    b"6ZKGSLpNbkuT3yJVkgZK6h/cXCnpMEkHSLoy5p0kaWcVWtqEiy+KvcfJ7Wg3JrkfV7YdqbFzgC8o"
+    b"/P6YiOmuGTv7zhRK+43Yr9rCnJ1xrI7xFuw2r4U1+se787D/3gNch4NpCNC/FNUdBfyGo3YRzm3T"
+    b"cRJuxCzTWGINcMTuADyKS/w18ZFjU3MSX7slPq4CqC0FcD123mexnz2DHX5YatOFZQBcg4vVSuAD"
+    b"3Igtwr5dnZnbgbX+LtBeCmANDoI/sWkacRTPiueiK/f2JJU4776HORtchp1QZP46YFUpgLviKKzB"
+    b"ZdI6nM+Sbm4lOX9Fi0h7nDtinfR40V94PQHcDhM9OD+uAnak8LsCXGbtXibA2VjbndivE5mDc26u"
+    b"9FQsDKDQbG+KI/QcTEvpAqA+5r1fJtAKrLF0h9eHrpnjb+mJi9N/ApLFquneHr5N8aY8T0T39jMX"
+    b"HMBfLYYwriZjNRoAAAAASUVORK5CYII="
 )
 
 if __name__ == '__main__':
