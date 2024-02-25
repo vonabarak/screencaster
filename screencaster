@@ -5,9 +5,10 @@ import sys
 from datetime import datetime
 from subprocess import getoutput, Popen, PIPE
 from pathlib import Path
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
+from PySide6.QtGui import QIcon, QPixmap, QAction
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 
+#            "-f pulse -i alsa_output.pci-0000_00_1f.3.analog-stereo.monitor -c:a aac "
 
 class Screencaster:
     def __init__(self):
@@ -21,8 +22,10 @@ class Screencaster:
 
     def start(self):
         self._new_filename()
+        logfile = self.filename.with_suffix(".log")
         command = self.command + str(self.filename)
-        self.process = Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
+        with open(logfile, "w") as outfh:
+            self.process = Popen(command, shell=True, stdout=outfh, stderr=outfh)
 
     def stop(self):
         self.process.terminate()
@@ -70,7 +73,7 @@ class Application:
         menu.addAction(option_quit)
         self.tray.setContextMenu(menu)
 
-        sys.exit(self.app.exec_())
+        sys.exit(self.app.exec())
 
     def start_stop(self, *_args, **_kwargs):
         if self.screencaster.recording():
