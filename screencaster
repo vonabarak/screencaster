@@ -14,7 +14,7 @@ class Screencaster:
         self.command = (
             "/usr/bin/ffmpeg "
             "-f pulse -i default -c:a aac "
-            "-f x11grab -i :0 -c:v h264 "
+            "-f x11grab -video_size 1920x1080 -i :0 -c:v h264 "
         )
         self.process = None
         self.filename = None
@@ -23,6 +23,7 @@ class Screencaster:
         self._new_filename()
         logfile = self.filename.with_suffix(".log")
         command = self.command + str(self.filename)
+        print(f"command={command}\nlogfile={logfile}")
         with open(logfile, "w") as outfh:
             self.process = Popen(command, shell=True, stdout=outfh, stderr=outfh)
 
