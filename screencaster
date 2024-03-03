@@ -1,28 +1,27 @@
 #!/usr/bin/env python
 
 import base64
-import sys
+import sys, os
 from datetime import datetime
 from subprocess import getoutput, Popen
 from pathlib import Path
-from PySide6.QtGui import QIcon, QPixmap, QAction
+from PySide6.QtGui import QIcon, QPixmap, QAction, QGuiApplication, QScreen
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+from typing import Optional
 
 
 class Screencaster:
-    def __init__(self):
-        self.command = (
-            "/usr/bin/ffmpeg "
-            "-f pulse -i default -c:a aac "
-            "-f x11grab -video_size 1920x1080 -i :0 -c:v h264 "
-        )
+    def __init__(self, resolution="1920x1080", offset="0,0", display=None):
+        self.display = display if display is not None else self._get_display()
+        self.resolution = resolution
+        self.offset = offset
         self.process = None
         self.filename = None
 
     def start(self):
         self._new_filename()
         logfile = self.filename.with_suffix(".log")
-        command = self.command + str(self.filename)
+        command = self._get_command()
         print(f"command={command}\nlogfile={logfile}")
         with open(logfile, "w") as outfh:
             self.process = Popen(command, shell=True, stdout=outfh, stderr=outfh)
@@ -45,11 +44,25 @@ class Screencaster:
         directory = getoutput("xdg-user-dir VIDEOS") or "/tmp"
         return Path(directory)
 
+    def _get_display(self):
+        return os.environ.get("DISPLAY", ":0")
+
+    def _get_command(self):
+        return (
+            f"/usr/bin/ffmpeg "
+            f"-f pulse -i default -c:a aac "
+            f"-f x11grab -video_size {self.resolution} "
+            f"-i {self.display}+{self.offset} "
+            f"-c:v h264 "
+            f"{self.filename}"
+        )
+
 
 class Application:
     def __init__(self):
-        self.screencaster = Screencaster()
         self.app = QApplication(sys.argv)
+        screens = QGuiApplication.screens()
+        self.screencaster = Screencaster(*self._params_from_qscreen(screens[0]))
         self.app.setQuitOnLastWindowClosed(False)
 
         self.tray = QSystemTrayIcon()
@@ -63,11 +76,21 @@ class Application:
         self.tray.activated.connect(self.start_stop)
 
         menu = QMenu()
-        option_start = QAction("Start")
-        option_start.triggered.connect(self.start)
+
+        if len(screens) > 1:
+            opts = {}
+            for i, screen in enumerate(screens):
+                opts[i] = QAction(f"Start on screen {screen.name()}")
+                opts[i].triggered.connect(
+                    lambda checked=False, arg=screen: self.start(arg))
+                menu.addAction(opts[i])
+        else:
+            option_start = QAction("Start")
+            option_start.triggered.connect(self.start)
+            menu.addAction(option_start)
+
         option_stop = QAction("Stop")
         option_stop.triggered.connect(self.stop)
-        menu.addAction(option_start)
         menu.addAction(option_stop)
         option_quit = QAction("Quit")
         option_quit.triggered.connect(self.app.quit)
@@ -82,25 +105,39 @@ class Application:
         else:
             self.start()
 
-    def start(self):
+    def start(self, screen: Optional[QScreen] = None):
         if not self.screencaster.recording():
+            screen_name = ""
+            if screen is not None:
+                self.screencaster = Screencaster(*self._params_from_qscreen(screen))
+                screen_name = f" on {screen.name()}"
             self.screencaster.start()
             self.tray.showMessage(
-                "I am watching at you...", str(self.screencaster.filename))
+                f"I am watching at you{screen_name}...",
+                str(self.screencaster.filename))
         else:
-            self.tray.showMessage("Already watching.", str(self.screencaster.filename))
+            self.tray.showMessage(
+                "Already watching.", str(self.screencaster.filename))
 
     def stop(self):
         if self.screencaster.recording():
             self.screencaster.stop()
-            self.tray.showMessage("No more watching.", str(self.screencaster.filename))
+            self.tray.showMessage(
+                "No more watching.", str(self.screencaster.filename))
         else:
             self.tray.showMessage("Not watching.", "Nuff said")
 
     def _is_dark_theme(self) -> bool:
         window_bg_color = self.app.palette().window().color()
-        luminance = 0.299 * window_bg_color.red() + 0.587 * window_bg_color.green() + 0.114 * window_bg_color.blue()
+        luminance = (0.299 * window_bg_color.red()
+                     + 0.587 * window_bg_color.green()
+                     + 0.114 * window_bg_color.blue())
         return luminance < 128
+
+    @staticmethod
+    def _params_from_qscreen(screen: QScreen):
+        geom = screen.geometry()
+        return f"{geom.width()}x{geom.height()}", f"{geom.x()},{geom.y()}"
 
 
 ICON_B = (
