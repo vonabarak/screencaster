@@ -12,6 +12,7 @@ from typing import Optional
 
 class Screencaster:
     def __init__(self, resolution="1920x1080", offset="0,0", display=None):
+        self.ffmpeg = "/usr/bin/ffmpeg"
         self.display = display if display is not None else self._get_display()
         self.resolution = resolution
         self.offset = offset
@@ -47,13 +48,31 @@ class Screencaster:
     def _get_display(self):
         return os.environ.get("DISPLAY", ":0")
 
+    def _check_vaapi(self):
+        try:
+            out = getoutput(f"{self.ffmpeg} -hide_banner -hwaccels")
+            if "vaapi" in out.split():
+                return True
+        except Exception as e:
+            print(f"Error checking vaapi: {e}")
+        return False
+
+    def _get_codec(self):
+        if self._check_vaapi():
+            return (
+                "h264_vaapi"
+                " -vaapi_device /dev/dri/renderD128 -vf 'format=nv12,hwupload' "
+            )
+        else:
+            return "h264"
+
     def _get_command(self):
         return (
-            f"/usr/bin/ffmpeg "
+            f"{self.ffmpeg} "
             f"-f pulse -i default -c:a aac "
             f"-f x11grab -video_size {self.resolution} "
             f"-i {self.display}+{self.offset} "
-            f"-c:v h264 "
+            f"-c:v {self._get_codec()} "
             f"{self.filename}"
         )
 
