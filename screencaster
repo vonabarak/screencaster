@@ -5,8 +5,8 @@ import sys, os
 from datetime import datetime
 from subprocess import getoutput, Popen
 from pathlib import Path
-from PySide6.QtGui import QIcon, QPixmap, QAction, QGuiApplication, QScreen
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+from qtpy.QtGui import QIcon, QPixmap, QAction, QGuiApplication, QScreen
+from qtpy.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from typing import Optional
 
 
